@@ -25,19 +25,27 @@ type Record = HashMap<String, String>;
 /// If `separator` is not specified, it defaults to dash (`-`).
 ///
 /// ```no_run
-/// let svg_template = Path::new(SVG_TEMPLATE_FILENAME);
-/// let output_dir = Path::new(OUTPUT_DIR);
+/// use color_eyre::{eyre::Report, Result};
+/// use std::path::Path;
+/// use svggloo::template::render;
+///
+/// # fn main() -> Result<(), Report> {
+/// let svg_template = Path::new("SVG_TEMPLATE_FILENAME");
+/// let output_dir = Path::new("OUTPUT_DIR");
 /// let fields = vec![
 ///     String::from("country"),
 ///     String::from("state"),
 ///     String::from("city"),
 /// ];
-/// let _ = templatize(
+/// let _ = render(
 ///     &svg_template.canonicalize()?,
 ///     output_dir,
+///     true,
 ///     Some(fields),
 ///     None,
 /// )?;
+/// # Ok(())
+/// # }
 /// ```
 pub fn render(
     svg_template: &Path,
@@ -62,10 +70,7 @@ pub fn render(
     let tmpl = env.get_template(name).unwrap();
 
     // Set the separator.
-    let sep = match separator {
-        Some(s) => s,
-        None => "-",
-    };
+    let sep = separator.unwrap_or("-");
 
     // Read the CSV.
     let mut csv_reader = Reader::from_path(template_data)?;
@@ -83,7 +88,7 @@ pub fn render(
                     .collect::<Vec<String>>();
                 v.join(sep).to_lowercase()
             }
-            None => record.values().nth(0).unwrap().to_owned().to_lowercase(),
+            None => record.values().next().unwrap().to_owned().to_lowercase(),
         };
         let mut item = item_name.clone();
         item.push_str(".svg");
@@ -135,7 +140,7 @@ where
         &export_filename,
     ];
 
-    export_with(&program, &args);
+    export_with(program, &args);
 }
 
 /// Export with a specific program and arguments.
@@ -147,10 +152,7 @@ fn export_with(program: &str, args: &[&str]) {
         &args.join(" ")
     );
     // Execute the export command.
-    let _output = Command::new(program)
-        .args(args)
-        .output()
-        .expect(error_msg.as_str());
+    let _output = Command::new(program).args(args).output().expect(&error_msg);
 }
 
 // fn get_in_out_file<'a, P>(src: &'a P) -> (&'a str, &'a str)
