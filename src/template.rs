@@ -90,12 +90,12 @@ pub fn render(
 
         // Render the template to file for this specific record.
         let rendered = tmpl.render(&record)?;
-        let output_file = output_dir.join(item);
+        let output_file = output_dir.join(&item);
         fs::write(&output_file, rendered)?;
 
         // Convert it to pdf.
         if export {
-            println!("Exporting...");
+            println!("Exporting \"{}\"...", &item);
             export_with_inkscape(&output_file);
         }
     }
