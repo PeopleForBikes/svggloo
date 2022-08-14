@@ -1,3 +1,4 @@
+use crate::template::Exporter;
 use clap::{crate_name, Parser, ValueHint};
 use std::path::PathBuf;
 
@@ -26,6 +27,6 @@ pub struct Opts {
     #[clap(short, long, default_value = "-")]
     pub separator: String,
     /// Export the rendered template as PDF
-    #[clap(short, long)]
-    pub export: bool,
+    #[clap(short, long, arg_enum)]
+    pub exporter: Option<Exporter>,
 }

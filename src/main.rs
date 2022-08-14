@@ -15,7 +15,7 @@ fn main() -> Result<(), Report> {
     let _ = render(
         &opts.template,
         &opts.output_dir,
-        opts.export,
+        opts.exporter,
         opts.field,
         Some(&opts.separator),
     );
