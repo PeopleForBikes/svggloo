@@ -1,7 +1,9 @@
 use color_eyre::{eyre::Report, Result};
 use std::path::Path;
-use svggloo::setup;
-use svggloo::template::render;
+use svggloo::{
+    setup,
+    template::{render, Exporter},
+};
 
 // The paths must be relative to the Cargo.toml file.
 const SVG_TEMPLATE_FILENAME: &'static str = "examples/brochure/brochure.svg";
@@ -19,7 +21,13 @@ fn main() -> Result<(), Report> {
 
     // Render the template.
     let fields = vec![String::from("co"), String::from("st"), String::from("ci")];
-    let _ = render(&svg_template, output_dir, true, Some(fields), None)?;
+    let _ = render(
+        &svg_template,
+        output_dir,
+        Some(Exporter::CairoSVG),
+        Some(fields),
+        None,
+    )?;
 
     Ok(())
 }

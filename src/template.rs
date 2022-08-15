@@ -1,3 +1,4 @@
+use clap::ValueEnum;
 use color_eyre::{eyre::Report, Result};
 use csv::Reader;
 use minijinja::Environment;
@@ -10,6 +11,13 @@ use std::{
 };
 
 type Record = HashMap<String, String>;
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+pub enum Exporter {
+    Inkscape,
+    CairoSVG,
+    SVG2PDF,
+}
 
 /// Render an SVG template.
 ///
@@ -30,7 +38,7 @@ type Record = HashMap<String, String>;
 /// ```no_run
 /// use color_eyre::{eyre::Report, Result};
 /// use std::path::Path;
-/// use svggloo::template::render;
+/// use svggloo::template::{render, Exporter};
 ///
 /// # fn main() -> Result<(), Report> {
 /// let svg_template = Path::new("SVG_TEMPLATE_FILENAME");
@@ -43,7 +51,7 @@ type Record = HashMap<String, String>;
 /// let _ = render(
 ///     &svg_template.canonicalize()?,
 ///     output_dir,
-///     true,
+///     Some(Exporter::CairoSVG),
 ///     Some(fields),
 ///     None,
 /// )?;
@@ -53,7 +61,7 @@ type Record = HashMap<String, String>;
 pub fn render(
     svg_template: &Path,
     output_dir: &Path,
-    export: bool,
+    exporter: Option<Exporter>,
     field_based_name: Option<Vec<String>>,
     separator: Option<&str>,
 ) -> Result<(), Report> {
@@ -105,8 +113,12 @@ pub fn render(
     }
 
     // Convert it to pdf.
-    if export {
-        export_with_inkscape(&files);
+    if let Some(exporter) = exporter {
+        match exporter {
+            Exporter::Inkscape => export_with_inkscape(&files),
+            Exporter::CairoSVG => export_with_cairosvg(&files),
+            Exporter::SVG2PDF => export_with_svg2pdf(&files),
+        }
     }
     Ok(())
 }
@@ -171,25 +183,41 @@ fn export_with(program: &str, args: &[String]) {
 ///
 /// The export is done using CairoSVG. If CairoSVG is not found, this function
 /// will panic.
-pub fn export_with_cairosvg<P>(src: P)
-where
-    P: AsRef<Path>,
-{
-    // Prepare the input/output values from the src argument.
-    let (in_svg, out_pdf) = get_in_out_file(src);
+// pub fn export_with_cairosvg<P>(src: P)
+// where
+//     P: AsRef<Path>,
+pub fn export_with_cairosvg(srcs: &[PathBuf]) {
+    for src in srcs {
+        // Prepare the input/output values from the src argument.
+        let (in_svg, out_pdf) = get_in_out_file(src);
 
-    // Prepare the command.
-    // cairosvg -f pdf -o brochure.pdf united\ states-ca-pasadena.svg
-    let program = "cairosvg";
-    let args = vec![
-        "-f".to_owned(),
-        "pdf".to_owned(),
-        "-o".to_owned(),
-        out_pdf,
-        in_svg,
-    ];
+        // Prepare the command.
+        // cairosvg -f pdf -o brochure.pdf united\ states-ca-pasadena.svg
+        let program = "cairosvg";
+        let args = vec![
+            "-f".to_owned(),
+            "pdf".to_owned(),
+            "-o".to_owned(),
+            out_pdf,
+            in_svg,
+        ];
 
-    export_with(program, &args);
+        export_with(program, &args);
+    }
+}
+
+pub fn export_with_svg2pdf(srcs: &[PathBuf]) {
+    for src in srcs {
+        // Prepare the input/output values from the src argument.
+        let (in_svg, _out_pdf) = get_in_out_file(src);
+
+        // Prepare the command.
+        // cairosvg -f pdf -o brochure.pdf united\ states-ca-pasadena.svg
+        let program = "svg2pdf";
+        let args = vec![in_svg];
+
+        export_with(program, &args);
+    }
 }
 
 fn get_in_out_file<P>(src: P) -> (String, String)

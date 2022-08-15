@@ -1,7 +1,9 @@
 use color_eyre::{eyre::Report, Result};
 use std::path::Path;
-use svggloo::setup;
-use svggloo::template::render;
+use svggloo::{
+    setup,
+    template::{render, Exporter},
+};
 
 // The paths must be relative to the Cargo.toml file.
 const SVG_TEMPLATE_FILENAME: &'static str = "examples/quantifier/bike_lane_categories.svg";
@@ -23,7 +25,13 @@ fn main() -> Result<(), Report> {
         String::from("state"),
         String::from("city"),
     ];
-    let _ = render(&svg_template, output_dir, true, Some(fields), None)?;
+    let _ = render(
+        &svg_template,
+        output_dir,
+        Some(Exporter::Inkscape),
+        Some(fields),
+        None,
+    )?;
 
     Ok(())
 }
