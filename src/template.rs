@@ -1,10 +1,13 @@
 use color_eyre::{eyre::Report, Result};
 use csv::Reader;
 use minijinja::Environment;
-use std::collections::HashMap;
-use std::fs;
-use std::path::Path;
-use std::process::Command;
+use serde::Serialize;
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 type Record = HashMap<String, String>;
 
@@ -74,9 +77,9 @@ pub fn render(
 
     // Read the CSV.
     let mut csv_reader = Reader::from_path(template_data)?;
+    let mut files: Vec<PathBuf> = Vec::new();
     for result in csv_reader.deserialize() {
         let record: Record = result?;
-        // dbg!(&record);
 
         // Construct the name of the output file.
         let item_name = match field_based_name.clone() {
@@ -85,6 +88,7 @@ pub fn render(
                     .clone()
                     .iter()
                     .map(|f| record[f].clone())
+                    .map(|f| f.replace(' ', "_"))
                     .collect::<Vec<String>>();
                 v.join(sep).to_lowercase()
             }
@@ -97,54 +101,60 @@ pub fn render(
         let rendered = tmpl.render(&record)?;
         let output_file = output_dir.join(&item);
         fs::write(&output_file, rendered)?;
+        files.push(output_file);
+    }
 
-        // Convert it to pdf.
-        if export {
-            println!("Exporting \"{}\"...", &item);
-            export_with_inkscape(&output_file);
-        }
+    // Convert it to pdf.
+    if export {
+        export_with_inkscape(&files);
     }
     Ok(())
 }
 
-/// Exports an SVG file to a PDF.
+pub fn render_record<S: Serialize>(svg_template: &Path, record: S) -> Result<String, Report> {
+    // Load the template.
+    let source = fs::read_to_string(svg_template)?;
+    let name = svg_template
+        .file_name()
+        .expect("Invalid template name.")
+        .to_str()
+        .unwrap();
+    let mut env = Environment::new();
+    env.add_template(name, &source)?;
+    let tmpl = env.get_template(name).unwrap();
+
+    // Render the template to file for this specific record.
+    Ok(tmpl.render(&record)?)
+}
+
+/// Exports an SVG file to a PDF with Inkscape.
 ///
 /// Exports an SVG `src` file as a PDF with the same name.
 ///
 /// The export is done using Inkspace. If Inkscape is not found, this function
 /// will panic.
-fn export_with_inkscape<P>(src: P)
-where
-    P: AsRef<Path>,
-{
-    // Prepare the input/output values from the src argument.
-    let in_svg = src
-        .as_ref()
-        .to_str()
-        .expect("The src file path is not valid UTF-8.");
-    let dest = src.as_ref().with_extension("pdf");
-    let out_pdf = dest
-        .to_str()
-        .expect("The dest file path is not valid UTF-8");
-
+pub fn export_with_inkscape(srcs: &[PathBuf]) {
     // Set the name of the Inkscape binary.
     let program = "inkscape";
 
     // Prepare the Inkscape arguments.
-    let export_filename = format!("--export-filename={}", out_pdf);
-    let args = vec![
-        in_svg,
-        "--export-area-drawing",
-        "--batch-process",
-        "--export-type=pdf",
-        &export_filename,
+    let export_filenames = srcs
+        .iter()
+        .map(|s| s.clone().into_os_string())
+        .filter_map(|src| src.into_string().ok())
+        .collect::<Vec<String>>();
+    let mut args = vec![
+        "--export-area-drawing".to_owned(),
+        "--batch-process".to_owned(),
+        "--export-type=pdf".to_owned(),
     ];
+    args.extend(export_filenames);
 
     export_with(program, &args);
 }
 
 /// Export with a specific program and arguments.
-fn export_with(program: &str, args: &[&str]) {
+fn export_with(program: &str, args: &[String]) {
     // Prepare the error message.
     let error_msg = format!(
         "Failed to execute command `{} {}`",
@@ -155,20 +165,45 @@ fn export_with(program: &str, args: &[&str]) {
     let _output = Command::new(program).args(args).output().expect(&error_msg);
 }
 
-// fn get_in_out_file<'a, P>(src: &'a P) -> (&'a str, &'a str)
-// where
-//     P: AsRef<Path>,
-// {
-//     let in_svg = src
-//         .as_ref()
-//         .to_str()
-//         .expect("The src file path is not valid UTF-8.");
-//     // let dest = src.as_ref().with_extension("pdf");
-//     let out_pdf = src
-//         .as_ref()
-//         .with_extension("pdf")
-//         .to_str()
-//         .expect("The dest file path is not valid UTF-8");
+/// Exports an SVG file to a PDF with CairoSVG.
+///
+/// Exports an SVG `src` file as a PDF with the same name.
+///
+/// The export is done using CairoSVG. If CairoSVG is not found, this function
+/// will panic.
+pub fn export_with_cairosvg<P>(src: P)
+where
+    P: AsRef<Path>,
+{
+    // Prepare the input/output values from the src argument.
+    let (in_svg, out_pdf) = get_in_out_file(src);
 
-//     (in_svg, out_pdf)
-// }
+    // Prepare the command.
+    // cairosvg -f pdf -o brochure.pdf united\ states-ca-pasadena.svg
+    let program = "cairosvg";
+    let args = vec![
+        "-f".to_owned(),
+        "pdf".to_owned(),
+        "-o".to_owned(),
+        out_pdf,
+        in_svg,
+    ];
+
+    export_with(program, &args);
+}
+
+fn get_in_out_file<P>(src: P) -> (String, String)
+where
+    P: AsRef<Path>,
+{
+    let in_svg = src
+        .as_ref()
+        .to_str()
+        .expect("The src file path is not valid UTF-8.");
+    let dest = src.as_ref().with_extension("pdf");
+    let out_pdf = dest
+        .to_str()
+        .expect("The dest file path is not valid UTF-8");
+
+    (in_svg.into(), out_pdf.into())
+}
