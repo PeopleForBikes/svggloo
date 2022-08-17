@@ -36,7 +36,7 @@ pub enum Exporter {
 /// If `separator` is not specified, it defaults to dash (`-`).
 ///
 /// ```no_run
-/// use color_eyre::{eyre::Report, Result};
+/// # use color_eyre::{eyre::Report, Result};
 /// use std::path::Path;
 /// use svggloo::template::{render, Exporter};
 ///
@@ -123,20 +123,41 @@ pub fn render(
     Ok(())
 }
 
-pub fn render_record<S: Serialize>(svg_template: &Path, record: S) -> Result<String, Report> {
-    // Load the template.
-    let source = fs::read_to_string(svg_template)?;
-    let name = svg_template
-        .file_name()
-        .expect("Invalid template name.")
-        .to_str()
-        .unwrap();
+/// Render the template using a record from the CSV file.
+///
+/// ```no_run
+/// # use color_eyre::{eyre::Report, Result};
+/// use svggloo::template::render_record;
+/// use std::collections::HashMap;
+///
+/// # fn main() -> Result<(), Report> {
+/// let template = "This is {{city}}.";
+/// let record = HashMap::from([("city", "Austin")]);
+/// let rendered = render_record(template, record)?;
+/// assert_eq!(rendered, String::from("This is Austin"));
+/// # Ok(())
+/// # }
+/// ```
+pub fn render_record<S: Serialize>(template: &str, record: S) -> Result<String, Report> {
+    let name = "template";
     let mut env = Environment::new();
-    env.add_template(name, &source)?;
+    env.add_template(name, template)?;
     let tmpl = env.get_template(name).unwrap();
 
     // Render the template to file for this specific record.
     Ok(tmpl.render(&record)?)
+}
+
+/// Render a template file using a record from the CSV file.
+pub fn render_record_from_file<S: Serialize>(
+    svg_template: &Path,
+    record: S,
+) -> Result<String, Report> {
+    // Load the template.
+    let template = fs::read_to_string(svg_template)?;
+
+    // Render it.
+    render_record(&template, record)
 }
 
 /// Exports an SVG file to a PDF with Inkscape.
@@ -183,16 +204,12 @@ fn export_with(program: &str, args: &[String]) {
 ///
 /// The export is done using CairoSVG. If CairoSVG is not found, this function
 /// will panic.
-// pub fn export_with_cairosvg<P>(src: P)
-// where
-//     P: AsRef<Path>,
 pub fn export_with_cairosvg(srcs: &[PathBuf]) {
     for src in srcs {
         // Prepare the input/output values from the src argument.
         let (in_svg, out_pdf) = get_in_out_file(src);
 
         // Prepare the command.
-        // cairosvg -f pdf -o brochure.pdf united\ states-ca-pasadena.svg
         let program = "cairosvg";
         let args = vec![
             "-f".to_owned(),
@@ -212,7 +229,6 @@ pub fn export_with_svg2pdf(srcs: &[PathBuf]) {
         let (in_svg, _out_pdf) = get_in_out_file(src);
 
         // Prepare the command.
-        // cairosvg -f pdf -o brochure.pdf united\ states-ca-pasadena.svg
         let program = "svg2pdf";
         let args = vec![in_svg];
 
@@ -220,6 +236,7 @@ pub fn export_with_svg2pdf(srcs: &[PathBuf]) {
     }
 }
 
+/// Get the input and output string representations of the provided file.
 fn get_in_out_file<P>(src: P) -> (String, String)
 where
     P: AsRef<Path>,
@@ -234,4 +251,17 @@ where
         .expect("The dest file path is not valid UTF-8");
 
     (in_svg.into(), out_pdf.into())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_get_in_out_file() {
+        let src = PathBuf::from("brochure.svg");
+        let (in_svg, out_pdf) = get_in_out_file(src);
+        assert_eq!(in_svg, String::from("brochure.svg"));
+        assert_eq!(out_pdf, String::from("brochure.pdf"));
+    }
 }
