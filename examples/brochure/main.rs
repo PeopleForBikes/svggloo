@@ -24,7 +24,7 @@ fn main() -> Result<(), Report> {
     let _ = render(
         &svg_template,
         output_dir,
-        Some(Exporter::CairoSVG),
+        Some(Exporter::Inkscape),
         Some(fields),
         None,
     )?;
