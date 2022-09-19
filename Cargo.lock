@@ -246,9 +246,9 @@ checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
 
 [[package]]
 name = "minijinja"
-version = "0.20.0"
+version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "450c32bf0055201c231d737143581710b093271cc862dcc273e1c027b4bd384d"
+checksum = "ad43d077d4d006f39cd55205b8dc64fbd52192ad3b3b62d878f4acd9e8929fe0"
 dependencies = [
  "serde",
 ]
