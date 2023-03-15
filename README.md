@@ -1,3 +1,7 @@
+> **NOTE**: _This repository is no longer supported or updated by the BNA
+> Mechanics team. If you wish to continue to develop this code yourself, we
+> recommend you fork it._
+
 # Svggloo
 
 [![ci](https://github.com/PeopleForBikes/svggloo/actions/workflows/ci.yaml/badge.svg)](https://github.com/PeopleForBikes/svggloo/actions/workflows/ci.yaml)
